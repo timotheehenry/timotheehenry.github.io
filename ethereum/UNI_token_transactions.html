@@ -251,8 +251,15 @@ for(i in 0:15) abline(h=i*1e7, col=&quot;lightgray&quot;)</code></pre>
 <div id="question-3-did-the-receivers-of-airdrop-keep-their-tokens" class="section level1">
 <h1>Question 3: did the receivers of airdrop keep their tokens?</h1>
 <pre class="r"><code>claimers_addresses = t[from_address==&quot;0x090d4613473dee047c3f2706764f49e0821d256e&quot;, to_address]
-
-claimers_trades = t[(to_address %in% claimers_addresses) | (from_address %in% claimers_addresses)]
+length(claimers_addresses)</code></pre>
+<pre><code>## [1] 187188</code></pre>
+<pre class="r"><code># we need to remove Binance and Huobi from the list, in case they are claimers
+claimers_addresses = claimers_addresses[claimers_addresses != &quot;0x3f5ce5fbfe3e9af3971dd833d26ba9b5c936f0be&quot;] # Binance
+claimers_addresses = claimers_addresses[claimers_addresses != &quot;0xe93381fb4c4f14bda253907b18fad305d799241a&quot;] # Huobi
+claimers_addresses = claimers_addresses[claimers_addresses != &quot;0x6cc5f688a315f3dc28a7781717a9a798a59fda7b&quot;] # OKEx
+length(claimers_addresses)</code></pre>
+<pre><code>## [1] 187187</code></pre>
+<pre class="r"><code>claimers_trades = t[(to_address %in% claimers_addresses) | (from_address %in% claimers_addresses)]
 claimers_trades[(to_address %in% claimers_addresses), value_dir := value]
 claimers_trades[(from_address %in% claimers_addresses), value_dir := - value]
 claimers_trades[(to_address %in% claimers_addresses) &amp; (from_address %in% claimers_addresses), value_dir := 0]
