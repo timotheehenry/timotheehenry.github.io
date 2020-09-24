@@ -184,8 +184,13 @@ s = s[, list(date_time, amount0In, amount1In, amount0Out, amount1Out)]
 
 # deduce UNI/ETH conversion rate
 s[amount0In != 0, r1 :=  amount1Out / amount0In]
+s[amount0In != 0, volume :=  amount1Out]
+
 s[amount0Out != 0, r1 :=  amount1In / amount0Out]
-s[, r1_mavg := frollmean(r1, 100)]
+s[amount0Out != 0, volume :=  amount1In]
+
+#s[, r1_mavg := frollmean(r1, 300)]
+s[, r1_mavg := frollsum(r1 * volume, 50) / frollsum(volume, 50)]
 
 # simplify value as numeric in token
 t[, value := as.numeric(value) / 1e18]
@@ -420,7 +425,7 @@ ctg[, netchange100 := frollsum(value, 100)]
 ## add extra space to right margin of plot within frame
 par(mar=c(5, 4, 4, 6) + 1.5)
 # Binance
-bg[, plot(date_time, netchange100, col=&quot;brown&quot;, lwd=2, type = &quot;l&quot;, xlab=&quot;&quot;, ylab=&quot;&quot;, main=&quot;Claimers, Binance, Huobi UNI tokens held&quot;,las=1, ylim=c(-5e6,10e6))]</code></pre>
+bg[, plot(date_time, netchange100, col=&quot;brown&quot;, lwd=2, type = &quot;l&quot;, xlab=&quot;&quot;, ylab=&quot;&quot;, main=&quot;Claimers, Binance, Huobi UNI tokens held&quot;,las=1, ylim=c(-6e6,6e6))]</code></pre>
 <pre><code>## NULL</code></pre>
 <pre class="r"><code># Huobi
 hg[, lines(date_time, netchange100, col=&quot;blue&quot;, lwd=2, type = &quot;l&quot;, xlab=&quot;&quot;, ylab=&quot;&quot;, las=1)]</code></pre>
@@ -428,8 +433,9 @@ hg[, lines(date_time, netchange100, col=&quot;blue&quot;, lwd=2, type = &quot;l&
 <pre class="r"><code># Token claimers (as a group)
 ctg[, lines(date_time, netchange100, col=&quot;darkgreen&quot;, lwd=2, type = &quot;l&quot;, xlab=&quot;&quot;, ylab=&quot;&quot;, las=1)]</code></pre>
 <pre><code>## NULL</code></pre>
-<pre class="r"><code>mtext(&quot;Binance UNI token holdings&quot;,side=2,line=4)
-abline(h=0)
+<pre class="r"><code>mtext(&quot;UNI token holdings&quot;,side=2,line=4)
+abline(h=0, col=&quot;black&quot;, lwd=2)
+
 
 ## Allow a second plot on the same graph, for the token price (in ETH)
 par(new=TRUE)
@@ -441,6 +447,7 @@ sf[400:nrow(sf), list(r1_mavg = mean(r1_mavg)), by=date_time][, plot(date_time, 
                         col = &quot;red&quot;, axes=FALSE)]</code></pre>
 <pre><code>## NULL</code></pre>
 <pre class="r"><code>for(i in 0:10) abline(h=i*0.005, col=&quot;lightgray&quot;)
+
 mtext(&quot;UNI vs ETH rate&quot;, side=4, col=&quot;red&quot;, line=4) 
 axis(4, col=&quot;red&quot;,col.axis=&quot;red&quot;,las=1)
 
