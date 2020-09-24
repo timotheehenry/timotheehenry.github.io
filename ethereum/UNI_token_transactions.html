@@ -128,8 +128,12 @@ $(document).ready(function () {
 </div>
 
 
+<style>
+div.blue { background-color:#e6f0ff; border-radius: 3px; padding: 5px;}
+</style>
 <div id="objective" class="section level1">
 <h1>Objective</h1>
+<div class="blue">
 <p>The UNI token was introduced on 17th Septembre 2020 Refer to the Uniswap blog post for details: <a href="https://uniswap.org/blog/uni/" class="uri">https://uniswap.org/blog/uni/</a></p>
 <p>The objective of this page is to analyze the <strong>UNI token transactions</strong>, and try to understand what is driving its price.</p>
 <p>For this we will try to answer the following questions:</p>
@@ -142,9 +146,13 @@ $(document).ready(function () {
 <li>Question 6: what is driving the price?</li>
 </ul>
 </div>
+</div>
 <div id="data-source" class="section level1">
 <h1>Data source</h1>
-<p>All data was downloaded using BigQuery with the following queries:</p>
+<div class="blue">
+All data was downloaded using BigQuery
+</div>
+<p>The following queries were used:</p>
 <p>To get token transfers on token UNI (0x1f9840a85d5af5bf1d1762f925bdaddc4201f984) <a href="https://etherscan.io/address/0x1f9840a85d5af5bf1d1762f925bdaddc4201f984" class="uri">https://etherscan.io/address/0x1f9840a85d5af5bf1d1762f925bdaddc4201f984</a></p>
 <pre class="txt"><code>SELECT * FROM bigquery-public-data.crypto_ethereum.token_transfers
 WHERE token_address = &quot;0x1f9840a85d5af5bf1d1762f925bdaddc4201f984&quot;</code></pre>
@@ -225,7 +233,9 @@ balance[, list(Quantity = sum(value)), by=address][order(-Quantity)][1:10]</code
 ## 1: 0x090d4613473dee047c3f2706764f49e0821d256e</code></pre>
 <pre class="r"><code>t[from_address==&quot;0x090d4613473dee047c3f2706764f49e0821d256e&quot;, sum(value)]</code></pre>
 <pre><code>## [1] 114777651</code></pre>
-<p>At this time, 114777651 ie <strong>77% of the 150 millions tokens have been claimed</strong>.</p>
+<div class="blue">
+At this time, 114777651 ie <strong>77% of the 150 millions tokens have been claimed</strong>.
+</div>
 <p>How does it look over time? Are we reaching a plateau, with the rest of the claims remaining forgotten?</p>
 <pre class="r"><code>cg = t[from_address==&quot;0x090d4613473dee047c3f2706764f49e0821d256e&quot;, sum(value), by=date_time][, list(date_time, total_claimed = cumsum(V1))]
 cg[, plot(date_time, total_claimed, type=&quot;l&quot;, lwd=2, main=&quot;Total airdrop tokens claimed&quot;)]</code></pre>
@@ -233,7 +243,10 @@ cg[, plot(date_time, total_claimed, type=&quot;l&quot;, lwd=2, main=&quot;Total 
 <pre class="r"><code>legend( &quot;topleft&quot;, c(&quot;tokens claimed&quot;), text.col=c(&quot;black&quot;) )
 for(i in 0:15) abline(h=i*1e7, col=&quot;lightgray&quot;)</code></pre>
 <p><img src="UNI_token_transactions_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
-<p>The claims are indeed “plateauing”, although there remains about 23% unclaimed. This can also be checked on etherscan here: <a href="https://etherscan.io/token/0x1f9840a85d5af5bf1d1762f925bdaddc4201f984?a=0x090d4613473dee047c3f2706764f49e0821d256e#tokenAnalytics" class="uri">https://etherscan.io/token/0x1f9840a85d5af5bf1d1762f925bdaddc4201f984?a=0x090d4613473dee047c3f2706764f49e0821d256e#tokenAnalytics</a></p>
+<div class="blue">
+<p>The claims are “plateauing”, although there remains about 23% unclaimed.</p>
+</div>
+<p>This can also be checked on etherscan here: <a href="https://etherscan.io/token/0x1f9840a85d5af5bf1d1762f925bdaddc4201f984?a=0x090d4613473dee047c3f2706764f49e0821d256e#tokenAnalytics" class="uri">https://etherscan.io/token/0x1f9840a85d5af5bf1d1762f925bdaddc4201f984?a=0x090d4613473dee047c3f2706764f49e0821d256e#tokenAnalytics</a></p>
 </div>
 <div id="question-3-did-the-receivers-of-airdrop-keep-their-tokens" class="section level1">
 <h1>Question 3: did the receivers of airdrop keep their tokens?</h1>
@@ -254,7 +267,9 @@ cg[, plot(date_time, total_claimed, type=&quot;l&quot;, lwd = 2, main=&quot;Clai
 <pre class="r"><code>legend( &quot;topleft&quot;, c(&quot;tokens claimed&quot;, &quot;tokens kept&quot;), text.col=c(&quot;black&quot;, &quot;blue&quot;) )
 for(i in 0:15) abline(h=i*1e7, col=&quot;lightgray&quot;)</code></pre>
 <p><img src="UNI_token_transactions_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
-<p>At this time, <strong>claimers of the airdrop have kept (as a group) about 55% of the 115 millions tokens they have claimed</strong>.</p>
+<div class="blue">
+<p>At this time, <strong>claimers of the airdrop have kept (as a group) about 55% of the 115 millions tokens they have claimed</strong>. They were net sellers of token during th first two or three days; since then they seem to be about neutral (as a group).</p>
+</div>
 </div>
 <div id="question-4-which-are-the-main-exchanges" class="section level1">
 <h1>Question 4: which are the main exchanges?</h1>
@@ -301,6 +316,9 @@ top_addresses</code></pre>
 ## [4] &quot;0x5ac13261c181a9c3938bfe1b649e65d10f98566b&quot;
 ## [5] &quot;0x7a250d5630b4cf539739df2c5dacb4c659f2488d&quot;
 ## [6] &quot;0x090d4613473dee047c3f2706764f49e0821d256e&quot;</code></pre>
+<div class="blue">
+<p>The top buyers and sellers are: the Uniswap ETH-UNI pool, Binance, Huobi, ?, OKEx.</p>
+</div>
 </div>
 <div id="question-6-what-is-driving-the-price-ongoing" class="section level1">
 <h1>Question 6: what is driving the price? (ongoing)</h1>
@@ -422,6 +440,19 @@ axis(4, col=&quot;red&quot;,col.axis=&quot;red&quot;,las=1)
 legend( &quot;topleft&quot;, c(&quot;Airdrop claimers tokens&quot;, &quot;Binance tokens&quot;, &quot;Huobi tokens&quot;, &quot;UNI rate vs ETH (right scale)&quot;), 
         text.col=c(&quot;darkgreen&quot;, &quot;brown&quot;, &quot;blue&quot;, &quot;red&quot;) )</code></pre>
 <p><img src="UNI_token_transactions_files/figure-html/unnamed-chunk-12-1.png" width="1344" /></p>
+<div class="blue">
+<p>The analysis of net changes among the top buyers and sellers of tokens suggests the following events (although the analysis is not complete since we only focused on the top 3 groups of buyers and sellers of tokens):</p>
+<ul>
+<li><p>17th-18th September 2020: huge volume of claimers of tokens, who unloaded 50% of the tokens to the markets. Binance and Huobi bought most of the tokens available. Price went up.</p></li>
+<li><p>19th September 2020: claims are slowing down. By the end of the day, Binance and Huobi stopped buying, and the claimers were still net sellers. The price started dropping.</p></li>
+<li><p>20th September 2020: volume of trades reduced a lot. Few buyers, and claimers are still net sellers. Price drops further.</p></li>
+<li>21st September 2020: price still going down, although it is not clear what drives the price. This would need further investigation.</li>
+</ul>
+</div>
+<div id="this-is-the-end-of-the-analysis-for-now." class="section level3">
+<h3>This is the end of the analysis for now.</h3>
+<p>Thank you. Fo any question or comment, send me an email at <a href="mailto:timothee.henry@gmail.com">timothee.henry@gmail.com</a></p>
+</div>
 </div>
 
 
