@@ -1,0 +1,131 @@
+---
+title: "Semi-successfull arbitrage loop trade on Uniswap"
+author: "Timothée Henry"
+date: "07/10/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Node script, using Uniswap sdk and ethers.js
+
+
+```{js}
+// ---------------------------
+const { ChainId, Fetcher, WETH, Route, Trade, TokenAmount, TradeType, Percent, Pair } = require('@uniswap/sdk');
+const { ethers, InfuraProvider }= require('ethers');
+
+// ---------------------------
+// PARAMETERS => NETWORK AND TOKENS
+// ---------------------------
+// process arguments
+arg_network = process.argv[2];
+token2 = process.argv[3];
+token3 = process.argv[4];
+
+if(arg_network == "kovan")  chainId = ChainId.KOVAN;
+if(arg_network == "mainnet")  chainId = ChainId.MAINNET;
+
+
+provider = new ethers.providers.InfuraProvider(arg_network, {
+    projectId: "xxx",
+    projectSecret: "xxx"
+});
+
+const my_address = 'xxx';
+const PRIVATE_KEY = "xxx";
+const signer = new ethers.Wallet(PRIVATE_KEY);
+const account = signer.connect(provider);
+
+const wethAddress = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
+
+// ---------------------------
+// ROUTER02
+// ---------------------------
+Router02_address = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
+
+// ---------------------------
+// Pre-approve transfers of tokens from pairs
+// ---------------------------
+const weth_contract = new ethers.Contract(wethAddress,['function approve(address guy, uint wad) public returns (bool)'], account);
+const token2_contract = new ethers.Contract(token2,['function approve(address guy, uint wad) public returns (bool)'], account);
+const token3_contract = new ethers.Contract(token3,['function approve(address guy, uint wad) public returns (bool)'], account);
+
+
+// ---------------------------
+// SWAP
+// ---------------------------
+const uniswap = new ethers.Contract(Router02_address,
+  ['function swapExactETHForTokens(uint amountOutMin, address[] calldata path, address to, uint deadline) external payable returns (uint[] memory amounts)'],account);
+
+
+const init = async () => {
+
+  console.log("------------");
+  console.log("APROVALS");
+  console.log("------------");
+
+  ALLOWANCE = 10000000000000000000;
+  BIG_ALLOWANCE = ethers.BigNumber.from(ALLOWANCE.toString()).toHexString()
+  
+  const Tx_approval_pair_A = await token2_contract.approve(Router02_address, BIG_ALLOWANCE);
+  console.log(`Transaction hash: ${Tx_approval_pair_A.hash}`);
+  const receipt_A = await Tx_approval_pair_A.wait();
+  console.log(`Approval was mined in block ${receipt_A.blockNumber}`);
+  
+  const Tx_approval_pair_B = await token3_contract.approve(Router02_address, BIG_ALLOWANCE);
+  console.log(`Transaction hash: ${Tx_approval_pair_B.hash}`);
+  const receipt_B = await Tx_approval_pair_B.wait();
+  console.log(`Approval was mined in block ${receipt_B.blockNumber}`);
+
+
+  console.log("------------");
+  console.log("SWAPS");
+  console.log("------------");
+
+  const deadline = Math.floor(Date.now() / 1000) + 60 * 20;
+  const tx_value = 1000000000000000000;
+
+  const amountOutMin = tx_value; //5000000000000000;
+  const amountOutMinHex = ethers.BigNumber.from(amountOutMin.toString()).toHexString();
+
+  const inputAmountHex = ethers.BigNumber.from(tx_value.toString()).toHexString(); 
+  gasPrice = await provider.getGasPrice();
+
+  const tx = await uniswap.swapExactETHForTokens(amountOutMinHex, [wethAddress, token2, token3, wethAddress], my_address, deadline,
+    {value: inputAmountHex, gasPrice: gasPrice.toHexString(), gasLimit: ethers.BigNumber.from(900000).toHexString() });
+    
+  console.log(`Transaction hash: ${tx.hash}`);
+  const receipt = await tx.wait();
+  console.log(`Transaction was mined in block ${receipt.blockNumber}`);
+
+}
+
+init();
+
+```
+
+## Result
+
+This resulted in a successfull loop swap, with the following path: [weth, LINK token, UNI token, weth]
+with an output slightly higher than the input: 1.005839225331015041 eth vs 1 eth.
+
+Transaction details are here:
+https://etherscan.io/tx/0x6e9d6bffc239b003a96ef8f465b8fe9f6ac0909162ab437bc5a14b2bd33075bf
+
+![Uniswap loop arbitrage](./Uniswap-loop-swap-arbitrage.jpg)
+
+
+Though, the trade is actually a loss for several reasons:<br>
+1.  it required pre-approval for Router02 to send token2 and token3, for which I sent two transactions which had their own costs.<br>
+2.  I set gas price way too high, which resulted in a high transaction fee compared to the amount traded.<br>
+
+## Possible improvements
+
+It seems it would be possible to fix both problems mentioned above with the following:<br>
+*  a solidity contract that would take care of the approvals and swaps in one atomic action; this reduces costs in case the transaction fails due to a change in reserves for example.<br>
+*  lower gas price<br>
+*  higher amount traded. This works only if the arbitrage allows it (sufficient reserves all along the trade)<br>
+<br>
