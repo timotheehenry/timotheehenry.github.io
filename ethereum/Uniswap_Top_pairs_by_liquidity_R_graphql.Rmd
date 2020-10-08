@@ -1,0 +1,55 @@
+---
+title: "Uniswap Top pairs using GraphQL and R"
+author: "Timothée Henry"
+date: "October 8th, 2020"
+output:
+  html_document:
+  self_contained: false
+lib_dir: libs
+---
+  
+  <style>
+  div.blue { background-color:#e6f0ff; border-radius: 3px; padding: 5px;}
+  </style>
+      
+
+```{r}
+# ===================
+# GraphQL with R
+# ===================
+# doc:
+# https://thegraph.com/explorer/subgraph/uniswap/uniswap-v2
+# https://uniswap.org/docs/v2/API/queries/
+# ===================
+require(ghql)
+require(data.table)
+# ==============================
+# Most liquid pairs
+# ==============================
+qry <- Query$new()
+qry$query("my_data", 'query {
+ pairs(first: 10, orderBy: reserveUSD, orderDirection: desc) {
+          id
+          reserveUSD
+          volumeUSD
+          reserve0
+          reserve1
+          token0Price
+          token1Price
+          txCount
+          }
+          }
+          ')
+
+con <- GraphqlClient$new('https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v2')
+x <- con$exec(qry$queries$my_data)
+t = jsonlite::fromJSON(x)
+t2 = data.table(t$data$pairs)
+t2[, reserve0 := round(as.numeric(reserve0))]
+t2[, reserve1 := round(as.numeric(reserve1))]
+t2[, reserveUSD := round(as.numeric(reserveUSD))]
+t2[, volumeUSD := round(as.numeric(volumeUSD))]
+t2[, token0Price := round(as.numeric(token0Price), 2)]
+t2[, token1Price := round(as.numeric(token1Price), 2)]
+t2
+```
