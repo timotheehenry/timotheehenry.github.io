@@ -131,6 +131,7 @@ $(document).ready(function () {
 <style>
   div.blue { background-color:#e6f0ff; border-radius: 3px; padding: 5px;}
   </style>
+<p>The objective is to re-create the list of top pairs by liquidity, as displayed here: <a href="https://info.uniswap.org/pairs" class="uri">https://info.uniswap.org/pairs</a></p>
 <pre class="r"><code># ===================
 # GraphQL with R
 # ===================
@@ -149,10 +150,54 @@ require(ghql)</code></pre>
 # ==============================
 qry &lt;- Query$new()
 qry$query(&quot;my_data&quot;, 'query {
- pairs(first: 10, orderBy: reserveUSD, orderDirection: desc) {
+
+   __type(name:&quot;Pair&quot;) {
+      fields {
+         name
+         description
+      }  
+   }
+}')
+con &lt;- GraphqlClient$new('https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v2')
+x &lt;- con$exec(qry$queries$my_data)
+require(stringr)</code></pre>
+<pre><code>## Loading required package: stringr</code></pre>
+<pre class="r"><code>str_split(x, &quot;:null&quot;)</code></pre>
+<pre><code>## [[1]]
+##  [1] &quot;{\&quot;data\&quot;:{\&quot;__type\&quot;:{\&quot;fields\&quot;:[{\&quot;description\&quot;&quot; 
+##  [2] &quot;,\&quot;name\&quot;:\&quot;id\&quot;},{\&quot;description\&quot;&quot;                  
+##  [3] &quot;,\&quot;name\&quot;:\&quot;token0\&quot;},{\&quot;description\&quot;&quot;              
+##  [4] &quot;,\&quot;name\&quot;:\&quot;token1\&quot;},{\&quot;description\&quot;&quot;              
+##  [5] &quot;,\&quot;name\&quot;:\&quot;reserve0\&quot;},{\&quot;description\&quot;&quot;            
+##  [6] &quot;,\&quot;name\&quot;:\&quot;reserve1\&quot;},{\&quot;description\&quot;&quot;            
+##  [7] &quot;,\&quot;name\&quot;:\&quot;totalSupply\&quot;},{\&quot;description\&quot;&quot;         
+##  [8] &quot;,\&quot;name\&quot;:\&quot;reserveETH\&quot;},{\&quot;description\&quot;&quot;          
+##  [9] &quot;,\&quot;name\&quot;:\&quot;reserveUSD\&quot;},{\&quot;description\&quot;&quot;          
+## [10] &quot;,\&quot;name\&quot;:\&quot;trackedReserveETH\&quot;},{\&quot;description\&quot;&quot;   
+## [11] &quot;,\&quot;name\&quot;:\&quot;token0Price\&quot;},{\&quot;description\&quot;&quot;         
+## [12] &quot;,\&quot;name\&quot;:\&quot;token1Price\&quot;},{\&quot;description\&quot;&quot;         
+## [13] &quot;,\&quot;name\&quot;:\&quot;volumeToken0\&quot;},{\&quot;description\&quot;&quot;        
+## [14] &quot;,\&quot;name\&quot;:\&quot;volumeToken1\&quot;},{\&quot;description\&quot;&quot;        
+## [15] &quot;,\&quot;name\&quot;:\&quot;volumeUSD\&quot;},{\&quot;description\&quot;&quot;           
+## [16] &quot;,\&quot;name\&quot;:\&quot;untrackedVolumeUSD\&quot;},{\&quot;description\&quot;&quot;  
+## [17] &quot;,\&quot;name\&quot;:\&quot;txCount\&quot;},{\&quot;description\&quot;&quot;             
+## [18] &quot;,\&quot;name\&quot;:\&quot;createdAtTimestamp\&quot;},{\&quot;description\&quot;&quot;  
+## [19] &quot;,\&quot;name\&quot;:\&quot;createdAtBlockNumber\&quot;},{\&quot;description\&quot;&quot;
+## [20] &quot;,\&quot;name\&quot;:\&quot;liquidityProviderCount\&quot;}]}}}&quot;</code></pre>
+<pre class="r"><code>qry &lt;- Query$new()
+qry$query(&quot;my_data&quot;, 'query {
+ pairs(first: 100, orderBy: txCount, orderDirection: desc) {
           id
           reserveUSD
           volumeUSD
+          token0 {
+             id
+             name
+           }
+           token1 {
+             id
+             name
+           }
           reserve0
           reserve1
           token0Price
@@ -165,36 +210,367 @@ qry$query(&quot;my_data&quot;, 'query {
 con &lt;- GraphqlClient$new('https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v2')
 x &lt;- con$exec(qry$queries$my_data)
 t = jsonlite::fromJSON(x)
-t2 = data.table(t$data$pairs)
-t2[, reserve0 := round(as.numeric(reserve0))]
-t2[, reserve1 := round(as.numeric(reserve1))]
-t2[, reserveUSD := round(as.numeric(reserveUSD))]
-t2[, volumeUSD := round(as.numeric(volumeUSD))]
-t2[, token0Price := round(as.numeric(token0Price), 2)]
-t2[, token1Price := round(as.numeric(token1Price), 2)]
-t2</code></pre>
-<pre><code>##                                             id  reserve0  reserve1
-##  1: 0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc 244477664    721501
-##  2: 0xbb2b8038a1640196fbe3e38816f3e67cba72d940     22880    715986
-##  3: 0x0d4a11d5eeaac28ec3f61d100daf4d40471f1852    662798 224372231
-##  4: 0xa478c2975ab1ea89e8196811f51a7b7ade33eb11 183211685    545576
-##  5: 0xf52f433b79d21023af94251958bed3b64a2b7930 388233753  49903582
-##  6: 0x6c2b76c8418fc0fcedc26169612ca915e70bd5ea      2400     30000
-##  7: 0xd3d2e2692501a5c9ca623199d38826e513033a17   7400463     60501
-##  8: 0x32ce7e48debdccbfe0cd037cc89526e4382cb81b      2799     37885
-##  9: 0x8ec55bde4265d7bd6d628e330148506faf235a2a   2646903     10594
-## 10: 0x3041cbd36888becc7bbcbc0045e3b1f144466f5f   8171193   8182905
-##     reserveUSD token0Price token1Price txCount  volumeUSD
-##  1:  487557348      338.85        0.00  485054 2538943620
-##  2:  483830282        0.03       31.29   60024  499319473
-##  3:  447889351        0.00      338.52  671741 3008060995
-##  4:  368675148      335.81        0.00  345770 1570084260
-##  5:   99416120        7.78        0.13     178     258827
-##  6:   68705494        0.08       12.50       1          0
-##  7:   40883521      122.32        0.01  238437 1139318289
-##  8:   25601170        0.07       13.54   90851  479564999
-##  9:   21197893      249.86        0.00      57          0
-## 10:   16318407        1.00        1.00  101763  180620161</code></pre>
+pairs = data.table(t$data$pairs)
+pairs[, reserve0 := round(as.numeric(reserve0))]
+pairs[, reserve1 := round(as.numeric(reserve1))]
+pairs[, reserveUSD := round(as.numeric(reserveUSD))]
+pairs[, volumeUSD := round(as.numeric(volumeUSD))]
+pairs[, token0Price := round(as.numeric(token0Price), 2)]
+pairs[, token1Price := round(as.numeric(token1Price), 2)]
+
+# re-order the columns
+pairs = pairs[, list(id, token0=token0.name, token1=token1.name, txCount, volumeUSD, reserveUSD, token0.id, token1.id, token0Price, token1Price)]
+pairs[1:10]</code></pre>
+<pre><code>##                                             id          token0          token1
+##  1: 0x0d4a11d5eeaac28ec3f61d100daf4d40471f1852   Wrapped Ether      Tether USD
+##  2: 0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc          USD//C   Wrapped Ether
+##  3: 0xa478c2975ab1ea89e8196811f51a7b7ade33eb11  Dai Stablecoin   Wrapped Ether
+##  4: 0xc5be99a02c6857f9eac67bbce58df5572498f40c   Wrapped Ether      Ampleforth
+##  5: 0xd3d2e2692501a5c9ca623199d38826e513033a17         Uniswap   Wrapped Ether
+##  6: 0xce84867c3c02b05dc570d0135103d3fb9cc19433      SushiToken   Wrapped Ether
+##  7: 0x2fdbadf3c4d5a8666bc06645b8358ab803996e28   yearn.finance   Wrapped Ether
+##  8: 0xa2107fa5b38d9bbd2c461d6edf11b11a50f6b974 ChainLink Token   Wrapped Ether
+##  9: 0xd90a1ba0cbaaaabfdc6c814cdf1611306a26e1f8   Wrapped Ether TrustSwap Token
+## 10: 0x3041cbd36888becc7bbcbc0045e3b1f144466f5f          USD//C      Tether USD
+##     txCount  volumeUSD reserveUSD                                  token0.id
+##  1:  673365 3019496038  446845129 0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2
+##  2:  485938 2543221021  485302221 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48
+##  3:  346236 1572833805  367811840 0x6b175474e89094c44da98b954eedeac495271d0f
+##  4:  275559 1298137954   13305916 0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2
+##  5:  238843 1141051372   40329696 0x1f9840a85d5af5bf1d1762f925bdaddc4201f984
+##  6:  160961 1180203138     205830 0x6b3595068778dd592e39a122f4f5a5cf09c90fe2
+##  7:  137504 1270188431   14464889 0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e
+##  8:  121107  490743493   14287359 0x514910771af9ca656af840dff83e8264ecf986ca
+##  9:  106975  190373946    1415140 0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2
+## 10:  101863  180756291   16603655 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48
+##                                      token1.id token0Price token1Price
+##  1: 0xdac17f958d2ee523a2206206994597c13d831ec7        0.00      335.77
+##  2: 0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2      336.03        0.00
+##  3: 0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2      333.02        0.00
+##  4: 0xd46ba6d942050d489dbd938a2c909a5d5039a161        0.00      477.60
+##  5: 0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2      123.22        0.01
+##  6: 0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2      524.59        0.00
+##  7: 0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2        0.03       39.19
+##  8: 0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2       39.22        0.03
+##  9: 0xcc4304a31d09258b0029ea7fe63d032f52e44efe        0.00     1334.81
+## 10: 0xdac17f958d2ee523a2206206994597c13d831ec7        1.00        1.00</code></pre>
+<p>We can verify some numbers on etherscan.io. The reserves seem correct. The prices cannot be trusted. Some of the stable coins are priced at 0 instead of 1 USD. Can we trust the volumeUSD and reserveUSD, then?</p>
+<p>To avoid scam tokens, can we get some additional data about the tokens? For example, I would be interested in: - number of holders - number of senders and receivers - number of days of activity (above a certain $ threshold)</p>
+<p>We can do that in BigQuery</p>
+<pre class="txt"><code>SELECT contract_address,
+  count(distinct(`from`)) as nb_from,
+  count(distinct(`to`)) as nb_to,
+  count(distinct( block_timestamp)) as nb_blocks
+FROM `blockchain-etl.ethereum_uniswap.UniswapV2Pair_event_Transfer`
+group by contract_address
+order by nb_to desc</code></pre>
+<p>and join the data back to our list of pairs:</p>
+<pre class="r"><code>pairs_stats = fread(&quot;/Users/henry/Downloads/results-20201008-104503.csv&quot;)
+setkey(pairs_stats, contract_address)
+setkey(pairs, id)
+
+
+recap = pairs_stats[pairs]
+recap[, txCount := as.numeric(txCount)]
+recap = recap[order(-txCount)]
+recap[, token0Price := NULL] # removing prices which seem wrong
+recap[, token1Price := NULL] # removing prices which seem wrong
+
+recap = recap[, list(contract_address, token0, token1, reserve_mUSD = round(reserveUSD/1e6,1), volume_mUSD=round(volumeUSD/1e6,1), txCount, nb_from, nb_to, nb_blocks, token0.id, token1.id)][order(-reserve_mUSD)]
+library(knitr)
+kable(recap[1:20], &quot;pipe&quot;)</code></pre>
+<table style="width:100%;">
+<colgroup>
+<col width="19%"></col>
+<col width="8%"></col>
+<col width="6%"></col>
+<col width="6%"></col>
+<col width="5%"></col>
+<col width="3%"></col>
+<col width="3%"></col>
+<col width="3%"></col>
+<col width="4%"></col>
+<col width="19%"></col>
+<col width="19%"></col>
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">contract_address</th>
+<th align="left">token0</th>
+<th align="left">token1</th>
+<th align="right">reserve_mUSD</th>
+<th align="right">volume_mUSD</th>
+<th align="right">txCount</th>
+<th align="right">nb_from</th>
+<th align="right">nb_to</th>
+<th align="right">nb_blocks</th>
+<th align="left">token0.id</th>
+<th align="left">token1.id</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc</td>
+<td align="left">USD//C</td>
+<td align="left">Wrapped Ether</td>
+<td align="right">485.3</td>
+<td align="right">2543.2</td>
+<td align="right">485938</td>
+<td align="right">8828</td>
+<td align="right">9894</td>
+<td align="right">48195</td>
+<td align="left">0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48</td>
+<td align="left">0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2</td>
+</tr>
+<tr class="even">
+<td align="left">0xbb2b8038a1640196fbe3e38816f3e67cba72d940</td>
+<td align="left">Wrapped BTC</td>
+<td align="left">Wrapped Ether</td>
+<td align="right">480.9</td>
+<td align="right">500.7</td>
+<td align="right">60134</td>
+<td align="right">6612</td>
+<td align="right">7369</td>
+<td align="right">24886</td>
+<td align="left">0x2260fac5e5542a773aa44fbcfedf7c193bc2c599</td>
+<td align="left">0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2</td>
+</tr>
+<tr class="odd">
+<td align="left">0x0d4a11d5eeaac28ec3f61d100daf4d40471f1852</td>
+<td align="left">Wrapped Ether</td>
+<td align="left">Tether USD</td>
+<td align="right">446.8</td>
+<td align="right">3019.5</td>
+<td align="right">673365</td>
+<td align="right">13915</td>
+<td align="right">15840</td>
+<td align="right">63431</td>
+<td align="left">0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2</td>
+<td align="left">0xdac17f958d2ee523a2206206994597c13d831ec7</td>
+</tr>
+<tr class="even">
+<td align="left">0xa478c2975ab1ea89e8196811f51a7b7ade33eb11</td>
+<td align="left">Dai Stablecoin</td>
+<td align="left">Wrapped Ether</td>
+<td align="right">367.8</td>
+<td align="right">1572.8</td>
+<td align="right">346236</td>
+<td align="right">13123</td>
+<td align="right">15476</td>
+<td align="right">53983</td>
+<td align="left">0x6b175474e89094c44da98b954eedeac495271d0f</td>
+<td align="left">0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2</td>
+</tr>
+<tr class="odd">
+<td align="left">0xd3d2e2692501a5c9ca623199d38826e513033a17</td>
+<td align="left">Uniswap</td>
+<td align="left">Wrapped Ether</td>
+<td align="right">40.3</td>
+<td align="right">1141.1</td>
+<td align="right">238843</td>
+<td align="right">4206</td>
+<td align="right">8418</td>
+<td align="right">18192</td>
+<td align="left">0x1f9840a85d5af5bf1d1762f925bdaddc4201f984</td>
+<td align="left">0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2</td>
+</tr>
+<tr class="even">
+<td align="left">0x32ce7e48debdccbfe0cd037cc89526e4382cb81b</td>
+<td align="left">cVault.finance</td>
+<td align="left">Wrapped Ether</td>
+<td align="right">25.7</td>
+<td align="right">482.0</td>
+<td align="right">91183</td>
+<td align="right">2752</td>
+<td align="right">2910</td>
+<td align="right">14089</td>
+<td align="left">0x62359ed7505efc61ff1d56fef82158ccaffa23d7</td>
+<td align="left">0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2</td>
+</tr>
+<tr class="odd">
+<td align="left">0x3041cbd36888becc7bbcbc0045e3b1f144466f5f</td>
+<td align="left">USD//C</td>
+<td align="left">Tether USD</td>
+<td align="right">16.6</td>
+<td align="right">180.8</td>
+<td align="right">101863</td>
+<td align="right">918</td>
+<td align="right">1206</td>
+<td align="right">4872</td>
+<td align="left">0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48</td>
+<td align="left">0xdac17f958d2ee523a2206206994597c13d831ec7</td>
+</tr>
+<tr class="even">
+<td align="left">0x2fdbadf3c4d5a8666bc06645b8358ab803996e28</td>
+<td align="left">yearn.finance</td>
+<td align="left">Wrapped Ether</td>
+<td align="right">14.5</td>
+<td align="right">1270.2</td>
+<td align="right">137504</td>
+<td align="right">2388</td>
+<td align="right">2930</td>
+<td align="right">21722</td>
+<td align="left">0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e</td>
+<td align="left">0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2</td>
+</tr>
+<tr class="odd">
+<td align="left">0xa2107fa5b38d9bbd2c461d6edf11b11a50f6b974</td>
+<td align="left">ChainLink Token</td>
+<td align="left">Wrapped Ether</td>
+<td align="right">14.3</td>
+<td align="right">490.7</td>
+<td align="right">121107</td>
+<td align="right">3111</td>
+<td align="right">4153</td>
+<td align="right">20568</td>
+<td align="left">0x514910771af9ca656af840dff83e8264ecf986ca</td>
+<td align="left">0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2</td>
+</tr>
+<tr class="even">
+<td align="left">0xdc98556ce24f007a5ef6dc1ce96322d65832a819</td>
+<td align="left">PickleToken</td>
+<td align="left">Wrapped Ether</td>
+<td align="right">14.1</td>
+<td align="right">278.9</td>
+<td align="right">57074</td>
+<td align="right">3955</td>
+<td align="right">4108</td>
+<td align="right">34201</td>
+<td align="left">0x429881672b9ae42b8eba0e26cd9c73711b891ca5</td>
+<td align="left">0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2</td>
+</tr>
+<tr class="odd">
+<td align="left">0xc5be99a02c6857f9eac67bbce58df5572498f40c</td>
+<td align="left">Wrapped Ether</td>
+<td align="left">Ampleforth</td>
+<td align="right">13.3</td>
+<td align="right">1298.1</td>
+<td align="right">275559</td>
+<td align="right">13074</td>
+<td align="right">13654</td>
+<td align="right">76955</td>
+<td align="left">0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2</td>
+<td align="left">0xd46ba6d942050d489dbd938a2c909a5d5039a161</td>
+</tr>
+<tr class="even">
+<td align="left">0x514906fc121c7878424a5c928cad1852cc545892</td>
+<td align="left">FARM Reward Token</td>
+<td align="left">USD//C</td>
+<td align="right">10.7</td>
+<td align="right">117.2</td>
+<td align="right">30204</td>
+<td align="right">1349</td>
+<td align="right">1350</td>
+<td align="right">10657</td>
+<td align="left">0xa0246c9032bc3a600820415ae600c6388619a14d</td>
+<td align="left">0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48</td>
+</tr>
+<tr class="odd">
+<td align="left">0x55d5c232d921b9eaa6b37b5845e439acd04b4dba</td>
+<td align="left">HEX</td>
+<td align="left">Wrapped Ether</td>
+<td align="right">7.0</td>
+<td align="right">37.9</td>
+<td align="right">33064</td>
+<td align="right">205</td>
+<td align="right">358</td>
+<td align="right">716</td>
+<td align="left">0x2b591e99afe9f32eaa6214f7b7629768c40eeb39</td>
+<td align="left">0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2</td>
+</tr>
+<tr class="even">
+<td align="left">0xc2adda861f89bbb333c90c492cb837741916a225</td>
+<td align="left">Maker</td>
+<td align="left">Wrapped Ether</td>
+<td align="right">5.4</td>
+<td align="right">69.7</td>
+<td align="right">27262</td>
+<td align="right">442</td>
+<td align="right">759</td>
+<td align="right">1576</td>
+<td align="left">0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2</td>
+<td align="left">0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2</td>
+</tr>
+<tr class="odd">
+<td align="left">0xae461ca67b15dc8dc81ce7615e0320da1a9ab8d5</td>
+<td align="left">Dai Stablecoin</td>
+<td align="left">USD//C</td>
+<td align="right">4.5</td>
+<td align="right">19.5</td>
+<td align="right">35030</td>
+<td align="right">231</td>
+<td align="right">342</td>
+<td align="right">1046</td>
+<td align="left">0x6b175474e89094c44da98b954eedeac495271d0f</td>
+<td align="left">0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48</td>
+</tr>
+<tr class="even">
+<td align="left">0x23bff8ca20aac06efdf23cee3b8ae296a30dfd27</td>
+<td align="left">Wrapped NXM</td>
+<td align="left">Wrapped Ether</td>
+<td align="right">3.8</td>
+<td align="right">149.3</td>
+<td align="right">36140</td>
+<td align="right">183</td>
+<td align="right">246</td>
+<td align="right">618</td>
+<td align="left">0x0d438f3b5175bebc262bf23753c1e53d03432bde</td>
+<td align="left">0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2</td>
+</tr>
+<tr class="odd">
+<td align="left">0xa5e79baee540f000ef6f23d067cd3ac22c7d9fe6</td>
+<td align="left">Celsius</td>
+<td align="left">Wrapped Ether</td>
+<td align="right">3.5</td>
+<td align="right">48.2</td>
+<td align="right">28782</td>
+<td align="right">215</td>
+<td align="right">378</td>
+<td align="right">870</td>
+<td align="left">0xaaaebe6fe48e54f431b0c390cfaf0b017d09d42d</td>
+<td align="left">0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2</td>
+</tr>
+<tr class="even">
+<td align="left">0x0d0d65e7a7db277d3e0f5e1676325e75f3340455</td>
+<td align="left">Meta</td>
+<td align="left">Wrapped Ether</td>
+<td align="right">3.0</td>
+<td align="right">127.6</td>
+<td align="right">49921</td>
+<td align="right">1109</td>
+<td align="right">1151</td>
+<td align="right">5288</td>
+<td align="left">0xa3bed4e1c75d00fa6f4e5e6922db7261b5e9acd2</td>
+<td align="left">0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2</td>
+</tr>
+<tr class="odd">
+<td align="left">0xab3f9bf1d81ddb224a2014e98b238638824bcf20</td>
+<td align="left">EthLend Token</td>
+<td align="left">Wrapped Ether</td>
+<td align="right">2.9</td>
+<td align="right">317.8</td>
+<td align="right">69608</td>
+<td align="right">2290</td>
+<td align="right">2593</td>
+<td align="right">17003</td>
+<td align="left">0x80fb784b7ed66730e8b1dbd9820afd29931aab03</td>
+<td align="left">0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2</td>
+</tr>
+<tr class="even">
+<td align="left">0x8bd1661da98ebdd3bd080f0be4e6d9be8ce9858c</td>
+<td align="left">Republic Token</td>
+<td align="left">Wrapped Ether</td>
+<td align="right">2.9</td>
+<td align="right">135.6</td>
+<td align="right">54405</td>
+<td align="right">917</td>
+<td align="right">1197</td>
+<td align="right">4129</td>
+<td align="left">0x408e41876cccdc0f92210600ef50372656052a38</td>
+<td align="left">0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2</td>
+</tr>
+</tbody>
+</table>
 
 
 

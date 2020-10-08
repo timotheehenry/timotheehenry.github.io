@@ -13,6 +13,10 @@ lib_dir: libs
   </style>
       
 
+The objective is to re-create the list of top pairs by liquidity, as displayed here:
+https://info.uniswap.org/pairs
+
+
 ```{r}
 # ===================
 # GraphQL with R
@@ -28,10 +32,35 @@ require(data.table)
 # ==============================
 qry <- Query$new()
 qry$query("my_data", 'query {
- pairs(first: 10, orderBy: reserveUSD, orderDirection: desc) {
+
+   __type(name:"Pair") {
+      fields {
+         name
+         description
+      }  
+   }
+}')
+con <- GraphqlClient$new('https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v2')
+x <- con$exec(qry$queries$my_data)
+require(stringr)
+str_split(x, ":null")
+
+
+
+qry <- Query$new()
+qry$query("my_data", 'query {
+ pairs(first: 100, orderBy: txCount, orderDirection: desc) {
           id
           reserveUSD
           volumeUSD
+          token0 {
+             id
+             name
+           }
+           token1 {
+             id
+             name
+           }
           reserve0
           reserve1
           token0Price
@@ -44,12 +73,60 @@ qry$query("my_data", 'query {
 con <- GraphqlClient$new('https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v2')
 x <- con$exec(qry$queries$my_data)
 t = jsonlite::fromJSON(x)
-t2 = data.table(t$data$pairs)
-t2[, reserve0 := round(as.numeric(reserve0))]
-t2[, reserve1 := round(as.numeric(reserve1))]
-t2[, reserveUSD := round(as.numeric(reserveUSD))]
-t2[, volumeUSD := round(as.numeric(volumeUSD))]
-t2[, token0Price := round(as.numeric(token0Price), 2)]
-t2[, token1Price := round(as.numeric(token1Price), 2)]
-t2
+pairs = data.table(t$data$pairs)
+pairs[, reserve0 := round(as.numeric(reserve0))]
+pairs[, reserve1 := round(as.numeric(reserve1))]
+pairs[, reserveUSD := round(as.numeric(reserveUSD))]
+pairs[, volumeUSD := round(as.numeric(volumeUSD))]
+pairs[, token0Price := round(as.numeric(token0Price), 2)]
+pairs[, token1Price := round(as.numeric(token1Price), 2)]
+
+# re-order the columns
+pairs = pairs[, list(id, token0=token0.name, token1=token1.name, txCount, volumeUSD, reserveUSD, token0.id, token1.id, token0Price, token1Price)]
+pairs[1:10]
+
 ```
+
+We can verify some numbers on etherscan.io.
+The reserves seem correct.
+The prices cannot be trusted. Some of the stable coins are priced at 0 instead of 1 USD.
+Can we trust the volumeUSD and reserveUSD, then?
+
+To avoid scam tokens, can we get some additional data about the tokens?
+For example, I would be interested in:
+- number of holders
+- number of senders and receivers
+- number of days of activity (above a certain $ threshold)
+
+
+We can do that in BigQuery
+```{txt}
+SELECT contract_address,
+  count(distinct(`from`)) as nb_from,
+  count(distinct(`to`)) as nb_to,
+  count(distinct( block_timestamp)) as nb_blocks
+FROM `blockchain-etl.ethereum_uniswap.UniswapV2Pair_event_Transfer`
+group by contract_address
+order by nb_to desc
+```
+
+and join the data back to our list of pairs:
+
+```{r}
+pairs_stats = fread("/Users/henry/Downloads/results-20201008-104503.csv")
+setkey(pairs_stats, contract_address)
+setkey(pairs, id)
+
+
+recap = pairs_stats[pairs]
+recap[, txCount := as.numeric(txCount)]
+recap = recap[order(-txCount)]
+recap[, token0Price := NULL] # removing prices which seem wrong
+recap[, token1Price := NULL] # removing prices which seem wrong
+
+recap = recap[, list(contract_address, token0, token1, reserve_mUSD = round(reserveUSD/1e6,1), volume_mUSD=round(volumeUSD/1e6,1), txCount, nb_from, nb_to, nb_blocks, token0.id, token1.id)][order(-reserve_mUSD)]
+library(knitr)
+kable(recap[1:20], "pipe")
+
+```
+
