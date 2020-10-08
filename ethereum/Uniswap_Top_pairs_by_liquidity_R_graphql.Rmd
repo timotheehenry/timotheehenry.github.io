@@ -27,6 +27,7 @@ https://info.uniswap.org/pairs
 # ===================
 require(ghql)
 require(data.table)
+library(knitr)
 # ==============================
 # Most liquid pairs
 # ==============================
@@ -43,13 +44,12 @@ qry$query("my_data", 'query {
 con <- GraphqlClient$new('https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v2')
 x <- con$exec(qry$queries$my_data)
 require(stringr)
-str_split(x, ":null")
-
+#str_split(x, ":null")
 
 
 qry <- Query$new()
 qry$query("my_data", 'query {
- pairs(first: 100, orderBy: txCount, orderDirection: desc) {
+ pairs(first: 100, orderBy: reserveUSD, orderDirection: desc) {
           id
           reserveUSD
           volumeUSD
@@ -83,7 +83,10 @@ pairs[, token1Price := round(as.numeric(token1Price), 2)]
 
 # re-order the columns
 pairs = pairs[, list(id, token0=token0.name, token1=token1.name, txCount, volumeUSD, reserveUSD, token0.id, token1.id, token0Price, token1Price)]
-pairs[1:10]
+
+# show top 10 pairs by liquidity (reserveUSD)
+kable(pairs[1:10], "pipe")
+
 
 ```
 
@@ -129,4 +132,18 @@ library(knitr)
 kable(recap[1:20], "pipe")
 
 ```
+
+It is clear now that the reserveUSD cannot be fully trusted. For example the contract 0x6c2b76c8418fc0fcedc26169612ca915e70bd5ea has only 1 transaction, and the transaction is between tokens with no clear value, as per etherscan:
+https://etherscan.io/token/0x671d131d72a0fecbd1a5ca9b024a5a150876ba70
+https://etherscan.io/address/0x78a685e0762096ed0f98107212e98f8c35a9d1d8
+
+What makes sense at this point is to filter out contracts with too few transactions, and too few participants (distinct to and from addresses).
+
+```{r}
+
+kable(recap[txCount>1000][nb_from>100][nb_to>100][1:50], "pipe")
+
+```
+
+
 
