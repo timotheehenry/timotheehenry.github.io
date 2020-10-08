@@ -1,0 +1,177 @@
+---
+title: "Uniswap Sushiswap arbitrage analysis"
+author: "Timothée Henry"
+date: "08/10/2020"
+output: html_document
+---
+
+  
+<style type="text/css">
+.main-container {
+  max-width: 1800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Using BigQuery, I compare Uniswap and Sushiswap pools for potential arbitrage opportunities.
+BigQuery data is, I think, about 10 minutes late to the market, so this is definitely not a production ready analysis. But the idea is to get a snapshot at that point in time and see the size of opportunities.
+
+
+SQL query for BigQuery.
+
+
+```{text}
+-- pairs and tokens------------------------
+with uniswap_pairs as
+(
+  select pair, contract_address, token0, token1
+  from `blockchain-etl.ethereum_uniswap.UniswapV2Factory_event_PairCreated`
+),
+sushiswap_pairs as
+(
+  select pair, contract_address, token0, token1
+  from `blockchain-etl.ethereum_sushiswap.UniswapV2Factory_event_PairCreated`
+),
+
+-- pairs and reserves-----------------------
+uniswap_pool_reserves as
+(
+SELECT
+    contract_address,
+    ROW_NUMBER() OVER (PARTITION BY contract_address
+                                ORDER BY block_number desc, log_index desc
+                               ) as latest_seqnum,
+
+    block_number,
+    log_index,
+    cast(SUBSTR(reserve0,1, BYTE_LENGTH(reserve0) - 15) as numeric)/1000 as sync_res0,
+    cast(SUBSTR(reserve1,1, BYTE_LENGTH(reserve1) - 15) as numeric)/1000 as sync_res1,
+  FROM `blockchain-etl.ethereum_uniswap.UniswapV2Pair_event_Sync`
+  where BYTE_LENGTH(reserve0)>=16 and BYTE_LENGTH(reserve1)>=16
+),
+
+uniswap_pool_reserves_filtered as
+(
+select
+  uniswap_pool_reserves.*,
+  uniswap_pairs.token0,
+  uniswap_pairs.token1
+from uniswap_pool_reserves
+join uniswap_pairs
+on uniswap_pool_reserves.contract_address = uniswap_pairs.pair
+and uniswap_pool_reserves.latest_seqnum = 1
+-- at least 50 tokens on each reserve to avoid super small pools (like 3 tokens etc)
+and uniswap_pool_reserves.sync_res0 > 100
+and uniswap_pool_reserves.sync_res1 > 100
+),
+
+-- sushiswap
+sushiswap_pool_reserves as
+(
+SELECT
+    contract_address,
+    ROW_NUMBER() OVER (PARTITION BY contract_address
+                                ORDER BY block_number desc, log_index desc
+                               ) as latest_seqnum,
+
+    block_number,
+    log_index,
+    cast(SUBSTR(reserve0,1, BYTE_LENGTH(reserve0) - 15) as numeric)/1000 as sync_res0,
+    cast(SUBSTR(reserve1,1, BYTE_LENGTH(reserve1) - 15) as numeric)/1000 as sync_res1,
+  FROM `blockchain-etl.ethereum_sushiswap.UniswapV2Pair_event_Sync`
+  where BYTE_LENGTH(reserve0)>=16 and BYTE_LENGTH(reserve1)>=16
+),
+sushiswap_pool_reserves_filtered as
+(
+select
+  sushiswap_pool_reserves.*,
+  sushiswap_pairs.token0,
+  sushiswap_pairs.token1
+from sushiswap_pool_reserves
+join sushiswap_pairs
+on sushiswap_pool_reserves.contract_address = sushiswap_pairs.pair
+where sushiswap_pool_reserves.latest_seqnum = 1
+-- at least 50 tokens on each reserve to avoid super small pools (like 3 tokens etc)
+and sushiswap_pool_reserves.sync_res0 > 10 
+and sushiswap_pool_reserves.sync_res1 > 10
+),
+
+recap as
+(
+select
+  uniswap_pool_reserves_filtered.contract_address as uni_pair,
+  sushiswap_pool_reserves_filtered.contract_address as sushi_pair,
+  uniswap_pool_reserves_filtered.token0 as token0,
+  uniswap_pool_reserves_filtered.token1 as token1,
+  uniswap_pool_reserves_filtered.sync_res0 as uni_res0,
+  uniswap_pool_reserves_filtered.sync_res1 as uni_res1,
+  sushiswap_pool_reserves_filtered.sync_res0 as sushi_res0,
+  sushiswap_pool_reserves_filtered.sync_res1 as sushi_res1
+from uniswap_pool_reserves_filtered
+join sushiswap_pool_reserves_filtered
+on (
+(uniswap_pool_reserves_filtered.token0 = sushiswap_pool_reserves_filtered.token0
+and uniswap_pool_reserves_filtered.token1 = sushiswap_pool_reserves_filtered.token1)
+or 
+(uniswap_pool_reserves_filtered.token0 = sushiswap_pool_reserves_filtered.token1
+and uniswap_pool_reserves_filtered.token1 = sushiswap_pool_reserves_filtered.token0)
+)
+order by (uni_res0 + uni_res1) desc
+)
+select *,
+-- smallest of the two uni reserves
+case
+  when (uni_res0 > uni_res1) then uni_res1
+  else uni_res0
+end
+  as min_uni_res,
+  
+-- potential ROI
+(uni_res1/uni_res0) / (sushi_res1/sushi_res0) as roi
+from recap
+order by min_uni_res desc
+```
+
+## Results
+
+Potential ROI is shown on the right and is a rough approximation calculated by dividing the ratio of reserves on both sides. This is inaccurate especially for small reserves, but gives an approximation for large reserves. Also this does not take into account the swap fees, ie 2 * 0.3% = 0.6%, nor the transaction fees.
+
+```{r}
+library(data.table)
+library(knitr)
+
+t = fread("/Users/henry/Downloads/results-20201008-143558.csv")
+t = t[, list(uni_pair, sushi_pair, approx_roi=round(roi,3), uni_res0, uni_res1, sushi_res0, sushi_res1, token0, token1)]
+
+# let's keep only pairs with WETH
+t = t[(token0 == "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2") | (token1 == "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2")]
+
+# estimate uni USD volume
+t[token0 == "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", USD_vol := 340 * uni_res0]
+t[token1 == "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", USD_vol := 340 * uni_res1]
+
+t = t[order(-USD_vol)]
+
+# filtering out reserves too small
+t = t[sushi_res0 >= 300][sushi_res1 >= 300]
+
+kable(t, "pipe")
+
+
+```
+
+We can see that the top 5 markets are very well in sync already between Uniswap and Sushiswap.
+
+A more thorough analysis of the ROI is necessary here to conclude if any opportunity is available on the smaller markets.
+
+
+
+
