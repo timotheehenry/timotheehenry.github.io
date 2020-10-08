@@ -2,16 +2,21 @@
 title: "Uniswap Top pairs using GraphQL and R"
 author: "Timothée Henry"
 date: "October 8th, 2020"
+geometry: margin=1cm
 output:
   html_document:
   self_contained: false
 lib_dir: libs
 ---
   
-  <style>
-  div.blue { background-color:#e6f0ff; border-radius: 3px; padding: 5px;}
-  </style>
-      
+<style type="text/css">
+.main-container {
+  max-width: 1800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
 
 The objective is to re-create the list of top pairs by liquidity, as displayed here:
 https://info.uniswap.org/pairs
