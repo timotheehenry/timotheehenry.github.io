@@ -2,6 +2,8 @@
 <title>How to find ethereum method identifier in a transaction?
 </title>
 
+<h1>How to find ethereum method identifier in a transaction?
+</h1>
 If I want to search transactions that call a specific method based on available code, it is possible using BigQuery and the input field.
 
 The following query can identify all transactions calling the method:
@@ -10,7 +12,7 @@ uniswapV2Call(address,uint256,uint256,bytes)
 
 because its code is "0xf19c7fd6".
 
-<h1>Finding the method code</h1>
+<h2>Finding the method code</h2>
 
 write down the function call:
 - without "function"
@@ -32,12 +34,12 @@ https://emn178.github.io/online-tools/keccak_256.html
     
     <img src="Keccak-example.jpeg" alt="Keccak online tool string example"  style="img {max-width:100%; height:auto};">
 
-<h1>Remix helps</h1>
+<h2>Remix helps</h2>
 Remix can help find the method identifier. After compilation, check the artifacts.
     
-    <img src="Remix-method-identifier.jpeg" alt="Remix to find ethereum method code"  style="img {max-width:100%; height:auto};">
+    <img src="Remix-method-identifier.jpeg" alt="Remix to find ethereum method code"  style="img {width: 720; height: 563};">
 
-<h1>BigQuery code</h1>
+<h2>BigQuery code</h2>
 
 SELECT * FROM `bigquery-public-data.crypto_ethereum.transactions`
 WHERE DATE(block_timestamp) >= "2020-03-05"
