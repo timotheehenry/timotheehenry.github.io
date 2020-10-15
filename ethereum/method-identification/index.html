@@ -11,6 +11,7 @@ The following query can identify all transactions calling the method:
 uniswapV2Call(address,uint256,uint256,bytes)
 
 because its code is "0xf19c7fd6".
+    <br>
 
 <h2>Finding the method code</h2>
 
@@ -22,22 +23,28 @@ write down the function call:
 - if arrays, put []
 
 so for example we have the following conversions:
+    <br>
 
     function uniswapV2Call(address sender, uint amount0, uint amount1, bytes calldata data) external override {
+    <br>
 becomes:
+    <br>
    uniswapV2Call(address,uint256,uint256,bytes)
 
+    <br>
 
 paste the string into the tool here:
 https://emn178.github.io/online-tools/keccak_256.html
     
+    <br>
     
     <img src="Keccak-example.jpeg" alt="Keccak online tool string example"  style="img {max-width:100%; height:auto};">
+    <br>
 
 <h2>Remix helps</h2>
 Remix can help find the method identifier. After compilation, check the artifacts.
     
-    <img src="Remix-method-identifier.jpeg" alt="Remix to find ethereum method code"  style="img {width: 720; height: 563};">
+    <img src="Remix-method-identifier.jpeg" alt="Remix to find ethereum method code"  style="img {width: 720px; height: 563px};">
 
 <h2>BigQuery code</h2>
 
