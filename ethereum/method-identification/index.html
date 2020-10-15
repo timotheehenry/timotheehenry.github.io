@@ -47,12 +47,14 @@ Remix can help find the method identifier. After compilation, check the artifact
     <img src="Remix-method-identifier.jpeg" alt="Remix to find ethereum method code"  style="img {width: 720px; height: 563px};">
 
 <h2>BigQuery code</h2>
+    <br>
 
-SELECT * FROM `bigquery-public-data.crypto_ethereum.transactions`
-WHERE DATE(block_timestamp) >= "2020-03-05"
-and (
-STARTS_WITH(input, "0x10d1e85c")
-)
+SELECT * FROM `bigquery-public-data.crypto_ethereum.transactions`    <br>
+WHERE DATE(block_timestamp) >= "2020-03-05"    <br>
+and (<br>
+STARTS_WITH(input, "0x10d1e85c")<br>
+)<br>
+<br>
 
 
 </html>
