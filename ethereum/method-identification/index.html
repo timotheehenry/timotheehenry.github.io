@@ -1,28 +1,28 @@
 <html>
-<title>How to find ethereum method identifier in a transaction?
+<title>How to find ethereum transactions that use a specific method call?
 </title>
 
-<h1>How to find ethereum method identifier in a transaction?
+<h1>How to find ethereum transactions that use a specific method call?
 </h1>
 If I want to search transactions that call a specific method based on available code, it is possible using BigQuery and the input field.
 
-The following query can identify all transactions calling the method:
-
-uniswapV2Call(address,uint256,uint256,bytes)
-
-because its code is "0xf19c7fd6".
+The following query can identify all transactions calling the method:<br>
+<br>
+uniswapV2Call(address,uint256,uint256,bytes)<br>
+<br>
+because its code is "0xf19c7fd6".<br>
     <br>
 
 <h2>Finding the method code</h2>
 
-write down the function call:
-- without "function"
-- remove all spaces
-- remove variable names and keep only types
-- replace uint by uint256
-- if arrays, put []
-
-so for example we have the following conversions:
+write down the function call:<br>
+- without "function"<br>
+- remove all spaces<br>
+- remove variable names and keep only types<br>
+- replace uint by uint256<br>
+- if arrays, put []<br>
+<br>
+so for example we have the following conversions:<br>
     <br>
 
     function uniswapV2Call(address sender, uint amount0, uint amount1, bytes calldata data) external override {
