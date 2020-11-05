@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+
+<meta name="author" content="Timothée Henry" />
+
+
+<title>gasToken analysis</title>
+
+<script src="libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="libs/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
+<script src="libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="libs/navigation-1.1/tabsets.js"></script>
+<link href="libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="libs/highlightjs-9.12.0/highlight.js"></script>
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+
+</head>
+
+<body>
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+  height: auto;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+</style>
+
+
+
+<div class="container-fluid main-container">
+
+<!-- tabsets -->
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+</script>
+
+<!-- code folding -->
+
+
+
+
+
+
+<div class="fluid-row" id="header">
+
+
+
+<h1 class="title toc-ignore">gasToken analysis</h1>
+<h4 class="author"><em>Timothée Henry</em></h4>
+<h4 class="date"><em>November 5th, 2020</em></h4>
+
+</div>
+
+
+<style>
+div.blue { background-color:#e6f0ff; border-radius: 3px; padding: 5px;}
+</style>
+<div id="data-source" class="section level1">
+<h1>Data source</h1>
+<p>gasToken pair gasToken / WETH <a href="https://info.uniswap.org/pair/0x27c64bdca05d79f6ee32c3e981dc5153d9d794cd" class="uri">https://info.uniswap.org/pair/0x27c64bdca05d79f6ee32c3e981dc5153d9d794cd</a></p>
+<pre class="txt"><code>SELECT block_timestamp, reserve0, reserve1
+FROM blockchain-etl.ethereum_uniswap.UniswapV2Pair_event_Sync
+where contract_address=&quot;0x27c64bdca05d79f6ee32c3e981dc5153d9d794cd&quot;
+and date(block_timestamp)&gt;=&quot;2020-01-01&quot;</code></pre>
+<pre class="r"><code>require(data.table)</code></pre>
+<pre><code>## Loading required package: data.table</code></pre>
+<pre><code>## Warning: package &#39;data.table&#39; was built under R version 3.5.2</code></pre>
+<pre class="r"><code>t=fread(&quot;/Users/henry/Desktop/perso/eth0/gasprice/gasToken-weth-pair-2.csv&quot;)
+t[, reserve1 := as.numeric(reserve1)]
+t[, priceGasToken := reserve1/reserve0 * 400 / 1e18 * 100]
+t[, datetime := strptime(substr(block_timestamp, 1, 16), &quot;%Y-%m-%d %H:%M&quot;)]</code></pre>
+<pre><code>## Warning in strptime(substr(block_timestamp, 1, 16), &quot;%Y-%m-%d %H:%M&quot;):
+## strptime() usage detected and wrapped with as.POSIXct(). This is to minimize
+## the chance of assigning POSIXlt columns, which use 40+ bytes to store one date
+## (versus 8 for POSIXct). Use as.POSIXct() (which will call strptime() as needed
+## internally) to avoid this warning.</code></pre>
+<pre class="r"><code>t = t[order(datetime)]</code></pre>
+</div>
+<div id="compare-gastoken-price-with-gasprice" class="section level1">
+<h1>Compare gasToken price with gasPrice</h1>
+<pre class="txt"><code>SELECT SUBSTR(STRING(block_timestamp), 1, 13) as date_time, avg(gas_price) as gas_price
+FROM bigquery-public-data.crypto_ethereum.transactions
+where date( block_timestamp)&gt;=&quot;2020-05-18&quot;
+group by date_time</code></pre>
+<pre class="r"><code>g =fread(&quot;/Users/henry/Desktop/perso/eth0/gasprice/gasprice-june-nov.csv&quot;)
+g = g[order(date_time)]
+g[, datetime := strptime(date_time, &quot;%Y-%m-%d %H&quot;)]</code></pre>
+<pre><code>## Warning in strptime(date_time, &quot;%Y-%m-%d %H&quot;): strptime() usage detected and
+## wrapped with as.POSIXct(). This is to minimize the chance of assigning POSIXlt
+## columns, which use 40+ bytes to store one date (versus 8 for POSIXct). Use
+## as.POSIXct() (which will call strptime() as needed internally) to avoid this
+## warning.</code></pre>
+<pre class="r"><code>g[, gas_price := round(gas_price/1e9, 2)]
+library(zoo)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;zoo&#39;</code></pre>
+<pre><code>## The following objects are masked from &#39;package:base&#39;:
+## 
+##     as.Date, as.Date.numeric</code></pre>
+<pre class="r"><code># moving average over last 30 data points (1 hour or so)
+g[, gas_price_ma := frollmean(gas_price, 30)]
+
+# volume of trade, from swaps on same pair
+swaps = fread(&quot;/Users/henry/Desktop/perso/eth0/gasprice/gasToken-weth-pair-swaps.csv&quot;)
+swaps = swaps[order(block_timestamp)]
+swaps = swaps[, list(volume = sum(as.numeric(amount1In)/1e18 * 400)), by=substr(block_timestamp, 1, 10)]
+
+# ===================================
+# PLOT
+par(mfrow=c(3,1), mar = c(2, 2, 2, 2))
+
+# First plot
+g[, plot(datetime, gas_price_ma, ylim=c(0,300), col=&quot;blue&quot;, type=&quot;l&quot;, main=&quot;gasPrice vs gasToken_price&quot;)]</code></pre>
+<pre><code>## NULL</code></pre>
+<pre class="r"><code>for(i in seq(0,300,10)) abline(h=i, col=&quot;lightgray&quot;)
+g[, lines(datetime, gas_price_ma, ylim=c(0,300), col=&quot;blue&quot;)]</code></pre>
+<pre><code>## NULL</code></pre>
+<pre class="r"><code>t[, lines(datetime, priceGasToken, col=&quot;red&quot;)]</code></pre>
+<pre><code>## NULL</code></pre>
+<pre class="r"><code>legend(&quot;topleft&quot;, legend=c(&quot;gasPrice&quot;, &quot;gasToken price on Uniswap GTK-WETH&quot;),
+       col=c(&quot;blue&quot;, &quot;red&quot;), lty=1:1, cex=1.4)
+
+# Second plot
+# show reserves on uni pool
+t[, plot(datetime, reserve0/1000, type=&quot;l&quot;, col=&quot;orange&quot;, main=&quot;GTK-WETH Uniswap pair reserves&quot;)]</code></pre>
+<pre><code>## NULL</code></pre>
+<pre class="r"><code>for(i in seq(0,200000,10000)) abline(h=i, col=&quot;lightgray&quot;)
+t[, lines(datetime, reserve0/1000, col=&quot;orange&quot;)]</code></pre>
+<pre><code>## NULL</code></pre>
+<pre class="r"><code>t[, lines(datetime, reserve1/1e18, col=&quot;green&quot;)]</code></pre>
+<pre><code>## NULL</code></pre>
+<pre class="r"><code>legend(&quot;topleft&quot;, legend=c(&quot;GTK reserves / 1e3&quot;, &quot;WETH reserves / 1e18&quot;),
+       col=c(&quot;orange&quot;, &quot;green&quot;), lty=1:1, cex=1.4)
+
+# add volume of trades
+swaps[, plot(as.Date(substr), volume, type=&quot;l&quot;, main=&quot;Volume of trade in USD on Uniswap GTK-WETH&quot;)]</code></pre>
+<p><img src="gasToken_analysis_files/figure-html/unnamed-chunk-4-1.png" width="1344" /></p>
+<pre><code>## NULL</code></pre>
+</div>
+<div id="comparing-gastoken-value-and-prices-on-uniswap-or-minting" class="section level1">
+<h1>Comparing gasToken value and prices (on Uniswap, or minting)</h1>
+<p>gasToken value is given by the javascript code at <a href="https://gastoken.io/" class="uri">https://gastoken.io/</a></p>
+<p>MINT_BASE = 32254; MINT_TOKEN = 36543; FREE_BASE = 14154; FREE_TOKEN = 6870; REIMBURSE = 24000;</p>
+<p>The value is the part REIMBURSE which is 24000 gas, which depends on the gas price at the time it is used. The price of the gasToken depends if it is minted, or bought on Uniswap for example.</p>
+<p>Let’s calculate those, and plot:</p>
+<pre class="r"><code>g[, x := substr(datetime, 1, 13)]
+t[, x := substr(datetime, 1, 13)]
+
+setkey(g, x)
+setkey(t, x)
+
+r = t[g]
+r = r[!is.na(priceGasToken)][!is.na(gas_price_ma)]
+
+r[, gasToken_Value := 24000 * gas_price_ma * 1e9 / 1e18 * 400]
+r[, gasToken_Price_Mint := 36543 * gas_price_ma * 1e9 / 1e18 * 400]
+r[, gasToken_Price_Uniswap := reserve1/reserve0 / 1e18 * 400]
+
+par(mfrow=c(1,1), mar = c(2, 2, 2, 2))
+r[, plot(datetime, gasToken_Value, col=&quot;green&quot;, type=&quot;l&quot;, main=&quot;gasToken value vs prices&quot;)]</code></pre>
+<pre><code>## NULL</code></pre>
+<pre class="r"><code>r[, lines(datetime, gasToken_Price_Mint, col=&quot;red&quot;)]</code></pre>
+<pre><code>## NULL</code></pre>
+<pre class="r"><code>r[, lines(datetime, gasToken_Price_Uniswap, col=&quot;orange&quot;)]</code></pre>
+<pre><code>## NULL</code></pre>
+<pre class="r"><code>legend(&quot;topleft&quot;, legend=c(&quot;gasToken value&quot;, &quot;gasToken price when minted&quot;, &quot;gasToken price on Uniswap&quot;),
+       col=c(&quot;green&quot;, &quot;red&quot;,&quot;orange&quot;), lty=1:1, cex=0.8)</code></pre>
+<p><img src="gasToken_analysis_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
+</div>
+
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
