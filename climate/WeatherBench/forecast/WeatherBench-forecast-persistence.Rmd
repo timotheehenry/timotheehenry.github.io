@@ -1,0 +1,67 @@
+---
+title: "850HPa Temperature Forecast - Persistence"
+author: "Timothée Henry"
+date: "16/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This analysis uses data and information from:
+
+"Stephan Rasp, Peter D. Dueben, Sebastian Scher, Jonathan A. Weyn, Soukayna Mouatadid, and Nils Thuerey, 2020. WeatherBench: A benchmark dataset for data-driven weather forecasting. arXiv: https://arxiv.org/abs/2002.00469"
+
+
+```{r}
+# ====================
+# baseline forecast of temperature 3 days in advance
+# compare to https://github.com/pangeo-data/WeatherBench
+# ====================
+
+# ------------------------------------------------
+# Persistence = forecast previous seen temperature
+# ------------------------------------------------
+library(ncdf4) # package for netcdf manipulation
+library(data.table)
+
+nc_data <- nc_open('/Users/henry/Desktop/perso/climate/WeatherBench/data/temperature_850hPa_2017_5.625deg.nc')
+# put temperature variable t in a "d array
+t <- ncvar_get(nc_data, "t")
+dim(t)
+
+t = as.data.table(t)
+setnames(t, c("lon","lat","time","temp"))
+```
+
+# Persistence model (same temperature as 3 days before)
+
+```{r}
+t[, pred := shift(temp, 72, type="lag"), by=list(lon,lat)]
+# rmse
+t[!is.na(pred), sqrt(mean((pred - temp)^2))]
+
+# ------------------------------------------------
+# RMSE
+# ------------------------------------------------
+# 4.80 for 2015
+# 4.75 for 2016
+# 4.80 for 2017
+# 4.72 for 2018
+# ------------------------------------------------
+
+```
+
+# Analyzing the error of the Persistence model
+
+```{r}
+t[!is.na(pred), list(error = sqrt(mean((pred - temp)^2))), by=list(time)][plot(time, error, ylim=c(0,10), main="RMSE by time")]
+
+t[!is.na(pred), list(error = sqrt(mean((pred - temp)^2))), by=list(lat)][plot(lat, error, ylim=c(0,10), main="RMSE by latitude")]
+
+t[!is.na(pred), list(error = sqrt(mean((pred - temp)^2))), by=list(lon)][plot(lon, error, ylim=c(0,10), main="RMSE by longitude")]
+```
+
+The RMSE by latitude is clearly the most interesting. Extreme latitudes have highest errors by far.
+
