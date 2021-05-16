@@ -1,0 +1,99 @@
+---
+title: "850HPa Temperature Forecast - Persistence"
+author: "Timothée Henry"
+date: "16/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This analysis uses data and information from:
+
+"Stephan Rasp, Peter D. Dueben, Sebastian Scher, Jonathan A. Weyn, Soukayna Mouatadid, and Nils Thuerey, 2020. WeatherBench: A benchmark dataset for data-driven weather forecasting. arXiv: https://arxiv.org/abs/2002.00469"
+
+Code can be found here:
+
+https://github.com/pangeo-data/WeatherBench
+
+
+```{r}
+library(ncdf4)
+library(data.table)
+
+nc_data <- nc_open('/Users/henry/Desktop/perso/climate/WeatherBench/data/temperature_850hPa_2016_5.625deg.nc')
+# put temperature variable t in a 3d array
+t <- ncvar_get(nc_data, "t")
+dim(t)
+
+t = as.data.table(t)
+setnames(t, c("lon","lat","time","temp"))
+```
+
+# Persistence model
+
+Persistence = forecast previous seen temperature.
+
+Since we have one observation per hour and per (latitude, longitude) the persistence model consists in taking the lag of the temperature 72 observations earlier (72 hours) for a 3-day-in-advance forecast.
+
+
+```{r}
+t[, pred := shift(temp, 72, type="lag"), by=list(lon,lat)]
+
+# RMSE = Root Mean Squared Error
+t[!is.na(pred), sqrt(mean((pred - temp)^2))]
+
+# ------------------------------------------------
+# RMSE
+# ------------------------------------------------
+# 4.80 for 2015
+# 4.75 for 2016
+# 4.80 for 2017
+# 4.72 for 2018
+# ------------------------------------------------
+
+```
+
+# Analyzing the error (RMSE) of the Persistence model
+
+```{r}
+t[!is.na(pred), list(error = sqrt(mean((pred - temp)^2))), by=list(time)][plot(time, error, ylim=c(0,10), main="RMSE by time")]
+
+t[!is.na(pred), list(error = sqrt(mean((pred - temp)^2))), by=list(lat)][plot(lat, error, ylim=c(0,10), main="RMSE by latitude")]
+
+t[!is.na(pred), list(error = sqrt(mean((pred - temp)^2))), by=list(lon)][plot(lon, error, ylim=c(0,10), main="RMSE by longitude")]
+```
+
+The RMSE by latitude is clearly the most interesting. Extreme latitudes have highest errors by far.
+
+# Details of the error by latitude
+```{r}
+e = t[!is.na(pred), list(error = sqrt(mean((pred - temp)^2))), by=list(lat, time)]
+# calculate moving average
+require(zoo)
+e[, error_mavg := frollmean(error, 24*7)]
+
+library(reshape2)
+eg = acast(e, time~lat, value.var="error_mavg")
+require(plotly)
+plot_ly(z=eg, type="surface") %>% layout(title = "RMSE by latitude and time")
+```
+
+We can see a clear pattern (seen on 2016, 2017, 2018) of higher errors in mid-year (June-July-August) for low latitudes (latitudes 1-5 in the 1-32 scale).
+The December-January months have high errors in the high latitudes.
+
+As a next step we will look in more details the actual temperatures and forecasts for these latitudes and months where RMSE are the highest.
+
+```{r}
+e
+e[lat==1, plot(time, error_mavg, ylim=c(0,12), col="blue", type="l", main="RMSE by time")]
+e[lat==1, lines(time, error_mavg, ylim=c(0,12), col="blue", lw=2)]
+e[lat==2, lines(time, error_mavg, ylim=c(0,12), col="orange", lw=2)]
+e[lat==3, lines(time, error_mavg, ylim=c(0,12), col="green", lw=2)]
+e[lat==4, lines(time, error_mavg, ylim=c(0,12), col="brown", lw=2)]
+```
+
+
+
+
